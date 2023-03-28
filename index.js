@@ -1,25 +1,23 @@
 // Node packages being used
 const express = require("express");
-const bodyParser = require("body-parser"); // Parses JSON bodies
+const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const app = express().use(bodyParser.text());
-const port = process.env.PORT || 3000;
 const gitlabApi = require("./apps/gitLab/api");
-const pbApi = require("./apps/productBoard/api"); // Sends HTTP requests
-require('dotenv').config();
+const pbApi = require("./apps/productBoard/api");
 
 // Configuration of our server
 app.use(express.json());
 app.use(express.urlencoded({extended: false}));
 app.use(cookieParser());
 
-// Initial route to confirm app is running
-app.get("/", (req, res) => {
-    res.send("This is the server hosting our Productboard <> GitLab integration");
-});
-
 // Probe for basic verification of the destination URL. More info here: https://developer.productboard.com/#tag/pluginIntegrations
 app.get("/plugin", (req, res) => {
+    if (req.header('Authorization') !== process.env.APP_PRIVATE_TOKEN) {
+        res.sendStatus(403);
+        return;
+    }
+
     res.setHeader("Content-type", "text/plain");
     res.status(200).send(req.query.validationToken);
 });
@@ -27,14 +25,10 @@ app.get("/plugin", (req, res) => {
 // Endpoint where POST requests from Productboard plugin will be sent. More info here: https://developer.productboard.com/#operation/postPluginIntegration
 app.post("/plugin", async (req, res) => {
     try {
-        res.json({
-            auth: req.header('Authorization'),
-        })
-
-
-        res.status(200).end();
-        return;
-
+        if (req.header('Authorization') !== process.env.APP_PRIVATE_TOKEN) {
+            res.sendStatus(403);
+            return;
+        }
 
         // Determine action on button trigger. Can be push, dismiss, or unlink.
         if (req.body.data.trigger !== "button.push") {
@@ -50,17 +44,17 @@ app.post("/plugin", async (req, res) => {
             return;
         }
 
+
         const pbFeatureID = req.body.data.feature.id;
         const feature = await pbApi.features.get(pbFeatureID)
-        const productId = await findProductIdByFeature(feature)
-        const gitlabGroupId = await getProductCustomFieldValue(productId, 'GitLab Group');
+        const gitlabGroupId = await findGitlabGroupId(feature);
         const gitlabEpic = await createGitlabEpic(gitlabGroupId, feature);
         createIntegrationConnection(feature.id, gitlabEpic.id, gitlabEpic.web_url);
 
         res.json({
             data: {
                 connection: {
-                    state: "connected",
+                    state: "progress",
                 },
             },
         });
@@ -72,14 +66,15 @@ app.post("/plugin", async (req, res) => {
 });
 
 // Initiating server to listen for requests from PB and GitLab
+const port = process.env.APP_PORT;
 app.listen(port, () => {
     console.log(`GitLab integration is listening on port ${port}`);
 });
 
-async function getProductCustomFieldValue(productId, fieldName) {
+async function getCustomFieldValue(entityId, fieldName) {
     const customFields = await pbApi.customFields.getMany('number');
     const field = customFields.find(f => f.name === fieldName);
-    const fieldValue = await pbApi.customFieldValues.get(productId, field.id);
+    const fieldValue = await pbApi.customFieldValues.get(entityId, field.id);
     return fieldValue.value;
 }
 
@@ -122,4 +117,16 @@ async function createGitlabEpic(gitlabGroupId, feature) {
     const {name, description, links} = feature;
     const linkHtml = `<br><strong>Click <a href="${links.html}" target="_blank">here</a> to see feature in Productboard</strong>`;
     return gitlabApi.epics.create(name, description + linkHtml, gitlabGroupId);
+}
+
+async function findGitlabGroupId(feature) {
+    const fieldName = 'GitLab Group';
+    let gitlabGroupId = await getCustomFieldValue(feature.id, fieldName);
+
+    if (gitlabGroupId) {
+        return gitlabGroupId;
+    }
+
+    const productId = await findProductIdByFeature(feature);
+    return getCustomFieldValue(productId, fieldName);
 }

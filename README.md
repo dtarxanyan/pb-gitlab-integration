@@ -1,13 +1,57 @@
-# pb-gitlab-integration-sample
+# ProductBoard -> GitLab integration
 
-This is a basic integration between Productboard and GitLab that allows you top push features from Productboard to a GitLab project as issues and track the status of those issues from Productboard. Click <a href="https://support.productboard.com/hc/en-us/articles/7902546531347-Setting-up-a-GitLab-integration-with-Heroku" target="_blank">here</a> for a step-by-step guide on setting up the integration. 
+This is a basic integration between ProductBoard and GitLab that allows you top push features from ProductBoard to a GitLab project as epics.
 
-After you fork the repo, click below to deploy the integration:
-<br>
-<a href="https://heroku.com/deploy" target="_blank">
-  <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy">
-</a>
+# Environment Variables
 
-Once you have deployed your integration on Heroku, open Postman with the link below to access a collection of Productboard's Plugin API requests in order to create your Plugin integration.
-<br>
-[![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/10775915-31124271-1b2b-4fb8-b34f-84ced8006bc7?action=collection%2Ffork&collection-url=entityId%3D10775915-31124271-1b2b-4fb8-b34f-84ced8006bc7%26entityType%3Dcollection%26workspaceId%3De0388bc6-bd02-4e49-93c4-2c9e63f1e4bf)
+ - ```APP_PRIVATE_TOKEN``` <br/>
+This is a private token that should be generated manually. Our application will deny any request where Authorization header with token will note match to ```APP_PRIVATE_TOKEN```.
+See also ```How to create Productboard integration``` section
+<br/><br/>
+ - ```PB_TOKEN``` <br/>
+The product board ```Public Api Token```. It is being used to be able to send authorized requests to the Productboard API.
+Click <a href="https://developer.productboard.com/#section/Authentication/Getting-a-token">Here</a> to learn how to get Productboard ```Public Api Token```.
+<br/><br/>
+- ```PB_INTEGRATION_ID``` <br/>
+Id of the Productboard integration. See ```How to create Productboard integration``` section
+<br/><br/> 
+- ```GITLAB_TOKEN``` <br/>
+Gitlab personal access token with ```api``` and ```read_api``` scopes. It is being used to be able to send authorized requests to the Gitlab API.
+Click <a href="https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html">Here</a> to learn how to generate Gitlab private token.
+
+# How to create Productboard integration
+Need to make a POST request to the ProductBoard API. This is one time work and can be 
+done manually using ```Postman``` or other requesting tool
+
+```POST https://api.productboard.com/plugin-integrations```
+
+<code>
+<pre>
+{
+    "data": {
+        "integrationStatus": "enabled",
+        "type": "com.mydomain.myservice",
+        "name": "My great integration",
+        "initialState": {
+            "label": "Push" // The label of the push button that will become visible on Productboard feature 
+        },
+        "action": { // Where the POST request will be senr
+            "url": "https://my.integration.com/plugin",
+            "version": 1,
+            "headers": {
+                "authorization": APP_PRIVATE_TOKEN // See environment variables section
+            }
+        }
+    }
+}
+</pre>
+</code>
+
+The response of the integration creation request will include the 
+integration id which needs to be stored as a value of the ```PB_INTEGRATION_ID```  environment variable
+
+Make sure that ```authorization``` field that we are sending to the Productboard while creating a new integration 
+is matching to our ```APP_PRIVATE_TOKEN``` environment variable value. It will be sent with each outgoing request from 
+Productboard to our integration system within the ```Authorization``` header.
+
+See more details about plugin creation <a href="https://developer.productboard.com/#tag/pluginIntegrations">here</a>

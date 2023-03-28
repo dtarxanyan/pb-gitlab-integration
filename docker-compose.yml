@@ -1,0 +1,16 @@
+services:
+  app:
+    environment:
+      - APP_PORT=${APP_PORT}
+      - APP_PRIVATE_TOKEN=${APP_PRIVATE_TOKEN}
+      - PB_TOKEN=${PB_TOKEN}
+      - PB_INTEGRATION_ID=${PB_INTEGRATION_ID}
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    volumes:
+      - .:/usr/src/app
+    command: npm start
+    ports:
+      - ${APP_PORT}:3000
