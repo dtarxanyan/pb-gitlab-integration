@@ -28,7 +28,7 @@ app.get("/plugin", (req, res) => {
 app.post("/plugin", async (req, res) => {
     try {
         res.json({
-            auth: req.header('Authorization');
+            auth: req.header('Authorization'),
         })
 
 
